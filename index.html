@@ -68,6 +68,20 @@
             gap: 5px;
         }
 
+        .infinite-btn {
+            background: transparent;
+            border: 1px solid var(--primary);
+            color: var(--primary);
+            padding: 4px 10px;
+            border-radius: 15px;
+            font-size: 0.75em;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .infinite-btn:hover {
+            background: rgba(0, 255, 204, 0.1);
+        }
+
         #bottom-controls {
             position: absolute;
             bottom: env(safe-area-inset-bottom, 20px);
@@ -121,15 +135,17 @@
             -webkit-tap-highlight-color: transparent;
         }
 
-        button:hover { background: var(--primary-hover); transform: translateY(-2px); }
-        button:active { transform: translateY(0); }
+        button:hover:not(:disabled) { background: var(--primary-hover); transform: translateY(-2px); }
+        button:active:not(:disabled) { transform: translateY(0); }
         button:disabled { background: #555; color: #888; cursor: not-allowed; transform: none; }
 
         .hints {
-            font-size: 0.75em;
+            font-size: 0.85em;
             color: rgba(255,255,255,0.5);
             text-align: center;
             line-height: 1.4;
+            min-height: 20px;
+            transition: color 0.3s;
         }
 
         /* --- Modals --- */
@@ -154,6 +170,9 @@
             text-align: center;
             box-shadow: 0 10px 40px rgba(0,0,0,0.8);
             animation: popIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
         }
 
         @keyframes popIn {
@@ -166,7 +185,7 @@
             height: 100px;
             border-radius: 50%;
             background: conic-gradient(var(--primary) 0%, #333 0%);
-            margin: 20px auto;
+            margin: 10px auto;
             display: flex;
             justify-content: center;
             align-items: center;
@@ -220,10 +239,13 @@
     <!-- Target HUD -->
     <div id="top-hud">
         <div class="hud-header">
-            <span>Daily Target <span id="day-number">#0</span></span>
-            <span id="tries-counter" style="color: var(--primary);">Tries: 0/5</span>
+            <span id="title-mode">Daily Target <span id="day-number">#0</span></span>
+            <button class="infinite-btn" id="infiniteBtnHeader">Infinite Mode 🔄</button>
         </div>
-        <div style="font-size: 0.8em; color: #888; margin-bottom: -5px;">Try to generate an island with these exact stats:</div>
+        <div style="font-size: 0.8em; color: #888; margin-bottom: -5px; display: flex; justify-content: space-between;">
+            <span>Generate an island with these exact stats:</span>
+            <span id="tries-counter" style="color: var(--primary); font-weight: bold;">Tries: 0/5</span>
+        </div>
         <div class="hud-stats">
             <div class="stat-item">💧 Water: <span id="target-water" style="color:#fff;">0%</span></div>
             <div class="stat-item">🌱 Land: <span id="target-land" style="color:#fff;">0%</span></div>
@@ -236,12 +258,11 @@
 
     <!-- Controls -->
     <div id="bottom-controls">
-        <div class="hints">
-            <strong>Hint:</strong> Word LENGTH increases Peak Height.<br>
-            <strong>Hint:</strong> VOWELS increase island fragmentation (more water).
+        <div class="hints" id="dynamic-hint-text">
+            <strong>Hint:</strong> Length = Peak Height. Vowels = More Water.
         </div>
         <div class="input-group">
-            <input type="text" id="seedInput" placeholder="Enter a word..." maxlength="15" autocomplete="off">
+            <input type="text" id="seedInput" placeholder="Enter a real word..." maxlength="15" autocomplete="off">
             <button id="generateBtn">Submit</button>
         </div>
         <div id="guess-history">
@@ -252,15 +273,16 @@
     <!-- Game Over / Victory Modal -->
     <div id="modal-overlay">
         <div class="modal-box">
-            <h2 id="modal-title" style="margin-top: 0;">Daily Complete!</h2>
+            <h2 id="modal-title" style="margin-top: 0; margin-bottom: 0;">Complete!</h2>
             <div class="score-circle" id="score-circle">
                 <span id="final-score">0%</span>
             </div>
-            <p id="modal-desc" style="color: #aaa; font-size: 0.9em; margin-bottom: 20px;">
+            <p id="modal-desc" style="color: #aaa; font-size: 0.9em; margin-bottom: 10px; margin-top: 0;">
                 You found the best ecosystem match.
             </p>
             <button id="shareBtn" style="width: 100%;">Share Result 📋</button>
-            <button id="closeModalBtn" style="width: 100%; margin-top: 10px; background: transparent; border: 1px solid #555; color: #fff;">Review Map</button>
+            <button id="infiniteBtnModal" style="width: 100%; background: #2c3e50; color: #00ffcc;">Play Infinite Mode 🔄</button>
+            <button id="closeModalBtn" style="width: 100%; background: transparent; border: 1px solid #555; color: #fff;">Review Map</button>
         </div>
     </div>
 
@@ -284,9 +306,10 @@
         let camX = 0, camY = 0;
         let isDragging = false, startDragX = 0, startDragY = 0;
 
-        // Daily Game State
+        // Game State
         let dailyTargetStats = { water: 0, land: 0, peak: 0 };
         let gameState = {
+            mode: 'daily', // 'daily' or 'infinite'
             dateStr: new Date().toDateString(),
             guesses: [], // { word, score, stats }
             bestScore: 0,
@@ -314,7 +337,6 @@
             const baseSeed = hashString(seedStr);
             const getCorner = (ix, iy) => seededRandom(baseSeed + ix * 12345 + iy * 67890);
 
-            // GAME DESIGN MECHANIC: Vowels dictate noise scale (fragmentation)
             const vowels = seedStr.match(/[aeiou]/gi)?.length || 0;
             const scale = 0.06 + Math.min(vowels, 10) * 0.015; 
 
@@ -348,7 +370,6 @@
             let mapData = [];
             let stats = { waterCount: 0, landCount: 0, rockCount: 0, totalVisible: 0, peak: 0 };
             
-            // GAME DESIGN MECHANIC: Word length dictates mountain height multiplier
             const heightMultiplier = 8 + Math.min(seedStr.length, 15) * 0.6;
 
             for (let x = 0; x < gridSize; x++) {
@@ -405,23 +426,57 @@
             };
         }
 
+        // --- Dictionary API Check ---
+        async function isValidWord(word) {
+            try {
+                // Using Datamuse API (fast, handles variations, free)
+                const res = await fetch(`https://api.datamuse.com/words?sp=${word}&max=1`);
+                const data = await res.json();
+                // Ensure the returned word exactly matches our input
+                return data.length > 0 && data[0].word.toLowerCase() === word.toLowerCase();
+            } catch (e) {
+                return true; // Graceful fallback if offline/API down
+            }
+        }
+
         // --- Game Logic ---
 
-        function loadGame() {
-            // Check LocalStorage
+        function initDaily() {
+            // Check LocalStorage for Daily
             const saved = localStorage.getItem('terrariumDaily');
             if (saved) {
                 const parsed = JSON.parse(saved);
-                if (parsed.dateStr === new Date().toDateString()) {
+                if (parsed.dateStr === new Date().toDateString() && parsed.mode === 'daily') {
                     gameState = parsed;
+                } else {
+                    resetGameState('daily', new Date().toDateString());
                 }
+            } else {
+                resetGameState('daily', new Date().toDateString());
             }
+            document.getElementById('title-mode').innerHTML = `Daily Target <span id="day-number">#${hashString(gameState.dateStr).toString().substring(0,4)}</span>`;
+            applyGameState();
+        }
 
-            // Generate Daily Target (Uses the Date string as the seed)
-            const dateStr = new Date().toDateString();
-            document.getElementById('day-number').innerText = "#" + hashString(dateStr).toString().substring(0,4);
-            
-            const targetData = generateTerrainData("Target-" + dateStr);
+        function initInfinite() {
+            const randomSeed = "Random-" + Math.floor(Math.random() * 9999999);
+            resetGameState('infinite', randomSeed);
+            document.getElementById('title-mode').innerHTML = `Infinite Target <span id="day-number">∞</span>`;
+            applyGameState();
+        }
+
+        function resetGameState(mode, seedStr) {
+            gameState = {
+                mode: mode,
+                dateStr: seedStr,
+                guesses: [],
+                bestScore: 0,
+                completed: false
+            };
+        }
+
+        function applyGameState() {
+            const targetData = generateTerrainData("Target-" + gameState.dateStr);
             dailyTargetStats = targetData.stats;
 
             // Update HUD
@@ -439,29 +494,51 @@
                 terrainMap = generateTerrainData("Ocean").map; // Default empty-ish map
             }
             
+            // Re-enable inputs if resetting
+            document.getElementById('seedInput').disabled = false;
+            document.getElementById('generateBtn').disabled = false;
+            document.getElementById('modal-overlay').style.display = 'none';
+
             if(gameState.completed) showModal();
         }
 
         function calculateScore(playerStats) {
-            // Difference in percentages (Water, Land, Rock)
             const waterDiff = Math.abs(dailyTargetStats.water - playerStats.water);
             const landDiff = Math.abs(dailyTargetStats.land - playerStats.land);
             const rockDiff = Math.abs(dailyTargetStats.rock - playerStats.rock);
-            
-            // Difference in peak height
             const peakDiff = Math.abs(dailyTargetStats.peak - playerStats.peak);
 
-            // Max possible variance is roughly 200 for %, and maybe 10 for peak
             let score = 100 - ((waterDiff + landDiff + rockDiff) * 0.4) - (peakDiff * 3);
             return Math.max(0, Math.min(100, Math.round(score)));
         }
 
-        function submitGuess() {
+        async function submitGuess() {
             if (gameState.completed || gameState.guesses.length >= MAX_TRIES) return;
 
             const input = document.getElementById('seedInput');
+            const submitBtn = document.getElementById('generateBtn');
+            const hintEl = document.getElementById('dynamic-hint-text');
+
             let word = input.value.trim().toLowerCase();
             if (!word) return;
+
+            // Validate Word
+            submitBtn.innerText = "Checking...";
+            submitBtn.disabled = true;
+            input.disabled = true;
+
+            const isReal = await isValidWord(word);
+
+            submitBtn.innerText = "Submit";
+            submitBtn.disabled = false;
+            input.disabled = false;
+            input.focus();
+
+            if (!isReal) {
+                hintEl.innerText = "⚠️ Not recognized as a valid English word.";
+                hintEl.style.color = "#ff4444";
+                return;
+            }
 
             // Generate map and calc score
             currentSeed = word;
@@ -470,7 +547,6 @@
             camX = 0; camY = 0; // Reset camera
             
             const score = calculateScore(data.stats);
-            
             if (score > gameState.bestScore) gameState.bestScore = score;
 
             gameState.guesses.push({
@@ -481,11 +557,14 @@
 
             if (gameState.guesses.length >= MAX_TRIES || score === 100) {
                 gameState.completed = true;
-                setTimeout(showModal, 1500); // Show modal after animation settles
+                setTimeout(showModal, 1500); 
             }
 
-            // Save and update
-            localStorage.setItem('terrariumDaily', JSON.stringify(gameState));
+            // Only save state if we are in Daily Mode
+            if (gameState.mode === 'daily') {
+                localStorage.setItem('terrariumDaily', JSON.stringify(gameState));
+            }
+
             input.value = '';
             input.blur();
             updateUI();
@@ -510,6 +589,34 @@
             if (gameState.completed) {
                 document.getElementById('seedInput').disabled = true;
                 document.getElementById('generateBtn').disabled = true;
+            }
+
+            updateDynamicHint();
+        }
+
+        function updateDynamicHint() {
+            const hintEl = document.getElementById('dynamic-hint-text');
+            if (gameState.guesses.length === 0) {
+                hintEl.innerText = "Hint: Length = Peak Height. Vowels = More Water.";
+                hintEl.style.color = "rgba(255,255,255,0.5)";
+                return;
+            }
+
+            const lastGuess = gameState.guesses[gameState.guesses.length - 1];
+            let hints = [];
+
+            if (lastGuess.stats.peak < dailyTargetStats.peak) hints.push("Need a LONGER word for higher peaks.");
+            else if (lastGuess.stats.peak > dailyTargetStats.peak) hints.push("Need a SHORTER word for lower peaks.");
+            
+            if (lastGuess.stats.water < dailyTargetStats.water) hints.push("Need MORE VOWELS for more water.");
+            else if (lastGuess.stats.water > dailyTargetStats.water) hints.push("Need FEWER VOWELS for less water.");
+
+            if (hints.length > 0) {
+                hintEl.innerText = "💡 Hint: " + hints[0];
+                hintEl.style.color = "#ffcc00"; // Stand out gold
+            } else {
+                hintEl.innerText = "💡 Hint: You're close! Try changing consonants to shift the land layout.";
+                hintEl.style.color = "var(--primary)";
             }
         }
 
@@ -626,11 +733,11 @@
                          finalScore >= 80 ? "Great adaptation!" : "Nature is unpredictable.";
             document.getElementById('modal-desc').innerText = desc;
             
+            document.getElementById('modal-title').innerText = gameState.mode === 'daily' ? "Daily Complete!" : "Infinite Complete!";
             document.getElementById('modal-overlay').style.display = 'flex';
         }
 
         function generateEmojiGrid() {
-            // Downsample the 28x28 grid to 5x5 for sharing
             let gridStr = "";
             const sampleStep = Math.floor(gridSize / 5);
             
@@ -653,16 +760,18 @@
 
         document.getElementById('shareBtn').addEventListener('click', () => {
             const bestGuessObj = gameState.guesses.reduce((prev, current) => (prev.score > current.score) ? prev : current);
-            // Hide the actual word length by replacing with stars so no spoilers
             const hiddenWord = "⭐".repeat(bestGuessObj.word.length);
             
-            const shareText = `Infinite Terrarium Daily ${document.getElementById('day-number').innerText}\nTarget: 💧${dailyTargetStats.water}% 🌱${dailyTargetStats.land}% 🏔️${dailyTargetStats.peak}\nMy Best Word: ${hiddenWord}\nScore: ${gameState.bestScore}%\n\n${generateEmojiGrid()}playterrarium.com`;
+            const headerTxt = gameState.mode === 'daily' 
+                ? `Infinite Terrarium Daily ${document.getElementById('day-number').innerText}`
+                : `Infinite Terrarium (Endless Mode)`;
+                
+            const shareText = `${headerTxt}\nTarget: 💧${dailyTargetStats.water}% 🌱${dailyTargetStats.land}% 🏔️${dailyTargetStats.peak}\nMy Best Word: ${hiddenWord}\nScore: ${gameState.bestScore}%\n\n${generateEmojiGrid()}playterrarium.com`;
 
             navigator.clipboard.writeText(shareText).then(() => {
                 document.getElementById('shareBtn').innerText = "Copied! ✓";
                 setTimeout(() => document.getElementById('shareBtn').innerText = "Share Result 📋", 2000);
             }).catch(() => {
-                // Fallback for older browsers / iframe restrictions
                 const textArea = document.createElement("textarea");
                 textArea.value = shareText;
                 document.body.appendChild(textArea);
@@ -687,6 +796,9 @@
             if (e.key === 'Enter') submitGuess();
         });
 
+        document.getElementById('infiniteBtnHeader').addEventListener('click', initInfinite);
+        document.getElementById('infiniteBtnModal').addEventListener('click', initInfinite);
+
         function animate() {
             timeOffset += 0.05; 
             drawWorld();
@@ -696,7 +808,7 @@
         window.addEventListener('resize', resize);
         window.onload = () => {
             resize();
-            loadGame();
+            initDaily(); // Default start in Daily Mode
             animate();
         };
     </script>
