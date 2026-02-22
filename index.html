@@ -55,6 +55,11 @@
             letter-spacing: 0.5px;
         }
 
+        .header-actions {
+            display: flex;
+            gap: 8px;
+        }
+
         .hud-stats {
             display: flex;
             justify-content: space-between;
@@ -68,7 +73,7 @@
             gap: 5px;
         }
 
-        .infinite-btn {
+        .outline-btn {
             background: transparent;
             border: 1px solid var(--primary);
             color: var(--primary);
@@ -77,8 +82,9 @@
             font-size: 0.75em;
             cursor: pointer;
             transition: all 0.2s;
+            font-weight: bold;
         }
-        .infinite-btn:hover {
+        .outline-btn:hover {
             background: rgba(0, 255, 204, 0.1);
         }
 
@@ -122,7 +128,7 @@
             border-color: var(--primary);
         }
 
-        button {
+        button.primary-btn {
             background: var(--primary);
             color: var(--bg-dark);
             border: none;
@@ -135,9 +141,9 @@
             -webkit-tap-highlight-color: transparent;
         }
 
-        button:hover:not(:disabled) { background: var(--primary-hover); transform: translateY(-2px); }
-        button:active:not(:disabled) { transform: translateY(0); }
-        button:disabled { background: #555; color: #888; cursor: not-allowed; transform: none; }
+        button.primary-btn:hover:not(:disabled) { background: var(--primary-hover); transform: translateY(-2px); }
+        button.primary-btn:active:not(:disabled) { transform: translateY(0); }
+        button.primary-btn:disabled { background: #555; color: #888; cursor: not-allowed; transform: none; }
 
         .hints {
             font-size: 0.85em;
@@ -149,7 +155,7 @@
         }
 
         /* --- Modals --- */
-        #modal-overlay {
+        .modal-overlay {
             position: absolute;
             top: 0; left: 0; right: 0; bottom: 0;
             background: rgba(0, 0, 0, 0.8);
@@ -232,6 +238,16 @@
             font-size: 0.85em;
         }
         .history-word { font-weight: bold; color: var(--primary); }
+
+        .rules-list {
+            text-align: left;
+            padding-left: 20px;
+            line-height: 1.6;
+            color: #ccc;
+            font-size: 0.95em;
+        }
+        .rules-list li { margin-bottom: 8px; }
+        .rules-list strong { color: #fff; }
     </style>
 </head>
 <body>
@@ -240,7 +256,10 @@
     <div id="top-hud">
         <div class="hud-header">
             <span id="title-mode">Daily Target <span id="day-number">#0</span></span>
-            <button class="infinite-btn" id="infiniteBtnHeader">Infinite Mode 🔄</button>
+            <div class="header-actions">
+                <button class="outline-btn" id="helpBtn">❓</button>
+                <button class="outline-btn" id="infiniteBtnHeader">Infinite 🔄</button>
+            </div>
         </div>
         <div style="font-size: 0.8em; color: #888; margin-bottom: -5px; display: flex; justify-content: space-between;">
             <span>Generate an island with these exact stats:</span>
@@ -263,15 +282,32 @@
         </div>
         <div class="input-group">
             <input type="text" id="seedInput" placeholder="Enter a real word..." maxlength="15" autocomplete="off">
-            <button id="generateBtn">Submit</button>
+            <button id="generateBtn" class="primary-btn">Submit</button>
         </div>
         <div id="guess-history">
             <!-- Guesses populate here -->
         </div>
     </div>
 
+    <!-- How To Play Modal -->
+    <div id="howto-modal" class="modal-overlay">
+        <div class="modal-box">
+            <h2 style="margin-top: 0; color: var(--primary);">How to Play</h2>
+            <p style="color: #eee; text-align: left; font-size: 0.95em;">
+                Type a real English word to generate a unique procedural island. Your goal is to get your island's stats to match the <strong>Target Stats</strong> perfectly!
+            </p>
+            <ul class="rules-list">
+                <li><strong>🏔️ Peak Height:</strong> Controlled by <strong>Word Length</strong>.<br><span style="font-size: 0.85em; color: #888;">(Longer words = taller mountains)</span></li>
+                <li><strong>💧 Water %:</strong> Controlled by <strong>Vowels</strong> (A,E,I,O,U).<br><span style="font-size: 0.85em; color: #888;">(More vowels = more water & fragmented land)</span></li>
+                <li><strong>🌱 Land Shape:</strong> Controlled by <strong>Consonants</strong>.<br><span style="font-size: 0.85em; color: #888;">(Different letters shift the terrain layout)</span></li>
+            </ul>
+            <p style="font-size: 0.85em; color: #888; margin-bottom: 5px;">Use the dynamic hints after each guess to hone in on the perfect word!</p>
+            <button id="closeHowToBtn" class="primary-btn" style="width: 100%; margin-top: 10px;">Got it!</button>
+        </div>
+    </div>
+
     <!-- Game Over / Victory Modal -->
-    <div id="modal-overlay">
+    <div id="result-modal" class="modal-overlay">
         <div class="modal-box">
             <h2 id="modal-title" style="margin-top: 0; margin-bottom: 0;">Complete!</h2>
             <div class="score-circle" id="score-circle">
@@ -280,9 +316,9 @@
             <p id="modal-desc" style="color: #aaa; font-size: 0.9em; margin-bottom: 10px; margin-top: 0;">
                 You found the best ecosystem match.
             </p>
-            <button id="shareBtn" style="width: 100%;">Share Result 📋</button>
-            <button id="infiniteBtnModal" style="width: 100%; background: #2c3e50; color: #00ffcc;">Play Infinite Mode 🔄</button>
-            <button id="closeModalBtn" style="width: 100%; background: transparent; border: 1px solid #555; color: #fff;">Review Map</button>
+            <button id="shareBtn" class="primary-btn" style="width: 100%;">Share Result 📋</button>
+            <button id="infiniteBtnModal" class="primary-btn" style="width: 100%; background: #2c3e50; color: #00ffcc;">Play Infinite Mode 🔄</button>
+            <button id="closeResultBtn" style="width: 100%; background: transparent; border: 1px solid #555; color: #fff; padding: 12px; border-radius: 8px; cursor: pointer; margin-top: 5px;">Review Map</button>
         </div>
     </div>
 
@@ -337,8 +373,9 @@
             const baseSeed = hashString(seedStr);
             const getCorner = (ix, iy) => seededRandom(baseSeed + ix * 12345 + iy * 67890);
 
-            const vowels = seedStr.match(/[aeiou]/gi)?.length || 0;
-            const scale = 0.06 + Math.min(vowels, 10) * 0.015; 
+            // Vowels control frequency (more vowels = smaller fragments = more water)
+            const vowels = seedStr.match(/[aeiouy]/gi)?.length || 0;
+            const scale = 0.05 + Math.min(vowels, 8) * 0.02; 
 
             const nx = x * scale, ny = y * scale;
             const ix = Math.floor(nx), iy = Math.floor(ny);
@@ -370,7 +407,8 @@
             let mapData = [];
             let stats = { waterCount: 0, landCount: 0, rockCount: 0, totalVisible: 0, peak: 0 };
             
-            const heightMultiplier = 8 + Math.min(seedStr.length, 15) * 0.6;
+            // Rebalanced multiplier: A normal 5-8 letter word can hit decent peaks now.
+            const heightMultiplier = 8 + Math.min(seedStr.length, 12) * 1.0;
 
             for (let x = 0; x < gridSize; x++) {
                 mapData[x] = [];
@@ -426,23 +464,40 @@
             };
         }
 
+        // --- Target Generation Logic ---
+        // Creates a fair dummy string so the target doesn't constantly demand 15-letter words.
+        function generateTargetWord(baseSeed) {
+            const hash = hashString(baseSeed);
+            // Creates a target length between 4 and 9 letters
+            const targetLength = 4 + (Math.abs(hash) % 6); 
+            // Creates a target vowel count appropriate for the length
+            const targetVowels = 1 + (Math.abs(hash) % Math.min(targetLength - 1, 4)); 
+            
+            const vowels = "aeiou";
+            const cons = "bcdfghjklmnprstvwxyz";
+            let word = "";
+            for(let i=0; i<targetLength; i++) {
+                if (i < targetVowels) word += vowels[Math.abs(hash+i) % vowels.length];
+                else word += cons[Math.abs(hash+i) % cons.length];
+            }
+            return word;
+        }
+
+
         // --- Dictionary API Check ---
         async function isValidWord(word) {
             try {
-                // Using Datamuse API (fast, handles variations, free)
                 const res = await fetch(`https://api.datamuse.com/words?sp=${word}&max=1`);
                 const data = await res.json();
-                // Ensure the returned word exactly matches our input
                 return data.length > 0 && data[0].word.toLowerCase() === word.toLowerCase();
             } catch (e) {
-                return true; // Graceful fallback if offline/API down
+                return true; // Graceful fallback if offline
             }
         }
 
         // --- Game Logic ---
 
         function initDaily() {
-            // Check LocalStorage for Daily
             const saved = localStorage.getItem('terrariumDaily');
             if (saved) {
                 const parsed = JSON.parse(saved);
@@ -476,30 +531,33 @@
         }
 
         function applyGameState() {
-            const targetData = generateTerrainData("Target-" + gameState.dateStr);
+            // Generate target using a normalized dummy string so targets are realistic
+            const dummyTargetWord = generateTargetWord("Target-" + gameState.dateStr);
+            const targetData = generateTerrainData(dummyTargetWord);
             dailyTargetStats = targetData.stats;
 
-            // Update HUD
             document.getElementById('target-water').innerText = dailyTargetStats.water + "%";
             document.getElementById('target-land').innerText = dailyTargetStats.land + "%";
             document.getElementById('target-peak').innerText = dailyTargetStats.peak;
 
             updateUI();
 
-            // Load last guess or render a blank starter world
             if (gameState.guesses.length > 0) {
                 currentSeed = gameState.guesses[gameState.guesses.length - 1].word;
                 terrainMap = generateTerrainData(currentSeed).map;
             } else {
-                terrainMap = generateTerrainData("Ocean").map; // Default empty-ish map
+                terrainMap = generateTerrainData("Ocean").map;
             }
             
-            // Re-enable inputs if resetting
             document.getElementById('seedInput').disabled = false;
             document.getElementById('generateBtn').disabled = false;
-            document.getElementById('modal-overlay').style.display = 'none';
+            document.getElementById('result-modal').style.display = 'none';
 
-            if(gameState.completed) showModal();
+            if(gameState.completed) showResultModal();
+            else if (gameState.guesses.length === 0 && gameState.mode === 'daily') {
+                // Show how to play on first load
+                document.getElementById('howto-modal').style.display = 'flex';
+            }
         }
 
         function calculateScore(playerStats) {
@@ -508,7 +566,7 @@
             const rockDiff = Math.abs(dailyTargetStats.rock - playerStats.rock);
             const peakDiff = Math.abs(dailyTargetStats.peak - playerStats.peak);
 
-            let score = 100 - ((waterDiff + landDiff + rockDiff) * 0.4) - (peakDiff * 3);
+            let score = 100 - ((waterDiff + landDiff + rockDiff) * 0.4) - (peakDiff * 4);
             return Math.max(0, Math.min(100, Math.round(score)));
         }
 
@@ -522,7 +580,6 @@
             let word = input.value.trim().toLowerCase();
             if (!word) return;
 
-            // Validate Word
             submitBtn.innerText = "Checking...";
             submitBtn.disabled = true;
             input.disabled = true;
@@ -535,16 +592,15 @@
             input.focus();
 
             if (!isReal) {
-                hintEl.innerText = "⚠️ Not recognized as a valid English word.";
+                hintEl.innerHTML = "⚠️ <strong>Invalid:</strong> Not recognized as a valid English word.";
                 hintEl.style.color = "#ff4444";
                 return;
             }
 
-            // Generate map and calc score
             currentSeed = word;
             const data = generateTerrainData(word);
             terrainMap = data.map;
-            camX = 0; camY = 0; // Reset camera
+            camX = 0; camY = 0; 
             
             const score = calculateScore(data.stats);
             if (score > gameState.bestScore) gameState.bestScore = score;
@@ -557,10 +613,9 @@
 
             if (gameState.guesses.length >= MAX_TRIES || score === 100) {
                 gameState.completed = true;
-                setTimeout(showModal, 1500); 
+                setTimeout(showResultModal, 1500); 
             }
 
-            // Only save state if we are in Daily Mode
             if (gameState.mode === 'daily') {
                 localStorage.setItem('terrariumDaily', JSON.stringify(gameState));
             }
@@ -597,25 +652,32 @@
         function updateDynamicHint() {
             const hintEl = document.getElementById('dynamic-hint-text');
             if (gameState.guesses.length === 0) {
-                hintEl.innerText = "Hint: Length = Peak Height. Vowels = More Water.";
+                hintEl.innerHTML = "<strong>Hint:</strong> Length = Peak Height. Vowels = More Water.";
                 hintEl.style.color = "rgba(255,255,255,0.5)";
                 return;
             }
 
             const lastGuess = gameState.guesses[gameState.guesses.length - 1];
+            
+            if (lastGuess.score === 100) {
+                hintEl.innerHTML = "🎉 <strong>Perfect Match!</strong>";
+                hintEl.style.color = "var(--primary)";
+                return;
+            }
+
             let hints = [];
 
-            if (lastGuess.stats.peak < dailyTargetStats.peak) hints.push("Need a LONGER word for higher peaks.");
-            else if (lastGuess.stats.peak > dailyTargetStats.peak) hints.push("Need a SHORTER word for lower peaks.");
+            if (lastGuess.stats.peak < dailyTargetStats.peak) hints.push("Need a <strong>LONGER</strong> word for higher peaks.");
+            else if (lastGuess.stats.peak > dailyTargetStats.peak) hints.push("Need a <strong>SHORTER</strong> word for lower peaks.");
             
-            if (lastGuess.stats.water < dailyTargetStats.water) hints.push("Need MORE VOWELS for more water.");
-            else if (lastGuess.stats.water > dailyTargetStats.water) hints.push("Need FEWER VOWELS for less water.");
+            if (lastGuess.stats.water < dailyTargetStats.water) hints.push("Need <strong>MORE VOWELS</strong> for more water.");
+            else if (lastGuess.stats.water > dailyTargetStats.water) hints.push("Need <strong>FEWER VOWELS</strong> for less water.");
 
             if (hints.length > 0) {
-                hintEl.innerText = "💡 Hint: " + hints[0];
-                hintEl.style.color = "#ffcc00"; // Stand out gold
+                hintEl.innerHTML = "💡 <strong>Hint:</strong> " + hints[0];
+                hintEl.style.color = "#ffcc00"; 
             } else {
-                hintEl.innerText = "💡 Hint: You're close! Try changing consonants to shift the land layout.";
+                hintEl.innerHTML = "💡 <strong>Hint:</strong> Stats are close! Change consonants to shift the land shape.";
                 hintEl.style.color = "var(--primary)";
             }
         }
@@ -724,7 +786,7 @@
         canvas.addEventListener('touchmove', doDrag, { passive: false });
         window.addEventListener('touchend', endDrag);
 
-        function showModal() {
+        function showResultModal() {
             const finalScore = gameState.bestScore;
             document.getElementById('final-score').innerText = finalScore + "%";
             document.getElementById('score-circle').style.background = `conic-gradient(var(--primary) ${finalScore}%, #333 ${finalScore}%)`;
@@ -734,7 +796,7 @@
             document.getElementById('modal-desc').innerText = desc;
             
             document.getElementById('modal-title').innerText = gameState.mode === 'daily' ? "Daily Complete!" : "Infinite Complete!";
-            document.getElementById('modal-overlay').style.display = 'flex';
+            document.getElementById('result-modal').style.display = 'flex';
         }
 
         function generateEmojiGrid() {
@@ -757,6 +819,15 @@
             }
             return gridStr;
         }
+
+        // Event Listeners
+        document.getElementById('helpBtn').addEventListener('click', () => {
+            document.getElementById('howto-modal').style.display = 'flex';
+        });
+
+        document.getElementById('closeHowToBtn').addEventListener('click', () => {
+            document.getElementById('howto-modal').style.display = 'none';
+        });
 
         document.getElementById('shareBtn').addEventListener('click', () => {
             const bestGuessObj = gameState.guesses.reduce((prev, current) => (prev.score > current.score) ? prev : current);
@@ -787,8 +858,8 @@
             });
         });
 
-        document.getElementById('closeModalBtn').addEventListener('click', () => {
-            document.getElementById('modal-overlay').style.display = 'none';
+        document.getElementById('closeResultBtn').addEventListener('click', () => {
+            document.getElementById('result-modal').style.display = 'none';
         });
 
         document.getElementById('generateBtn').addEventListener('click', submitGuess);
@@ -797,7 +868,10 @@
         });
 
         document.getElementById('infiniteBtnHeader').addEventListener('click', initInfinite);
-        document.getElementById('infiniteBtnModal').addEventListener('click', initInfinite);
+        document.getElementById('infiniteBtnModal').addEventListener('click', () => {
+            document.getElementById('result-modal').style.display = 'none';
+            initInfinite();
+        });
 
         function animate() {
             timeOffset += 0.05; 
@@ -808,7 +882,7 @@
         window.addEventListener('resize', resize);
         window.onload = () => {
             resize();
-            initDaily(); // Default start in Daily Mode
+            initDaily();
             animate();
         };
     </script>
