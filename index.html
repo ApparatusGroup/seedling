@@ -1,0 +1,704 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Infinite Terrarium: Daily Seed</title>
+    <style>
+        :root {
+            --primary: #00ffcc;
+            --primary-hover: #00cca3;
+            --bg-dark: #0f1115;
+            --panel-bg: rgba(20, 24, 32, 0.85);
+        }
+        
+        body {
+            margin: 0;
+            overflow: hidden;
+            background-color: var(--bg-dark);
+            color: #fff;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            touch-action: none;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        /* --- UI Overlays --- */
+        #top-hud {
+            position: absolute;
+            top: env(safe-area-inset-top, 10px);
+            margin-top: 10px;
+            width: 90%;
+            max-width: 500px;
+            background: var(--panel-bg);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 12px;
+            padding: 15px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+            z-index: 20;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .hud-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+            padding-bottom: 8px;
+            font-weight: bold;
+            font-size: 1.1em;
+            letter-spacing: 0.5px;
+        }
+
+        .hud-stats {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.9em;
+            color: #aaa;
+        }
+        
+        .stat-item {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        #bottom-controls {
+            position: absolute;
+            bottom: env(safe-area-inset-bottom, 20px);
+            margin-bottom: 20px;
+            width: 90%;
+            max-width: 500px;
+            background: var(--panel-bg);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 12px;
+            padding: 15px;
+            z-index: 20;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .input-group {
+            display: flex;
+            gap: 10px;
+        }
+
+        input {
+            flex: 1;
+            background: rgba(0, 0, 0, 0.5);
+            border: 1px solid #444;
+            color: var(--primary);
+            padding: 12px 16px;
+            border-radius: 8px;
+            font-size: 16px;
+            outline: none;
+            transition: border-color 0.2s;
+            text-transform: uppercase;
+        }
+
+        input:focus {
+            border-color: var(--primary);
+        }
+
+        button {
+            background: var(--primary);
+            color: var(--bg-dark);
+            border: none;
+            padding: 12px 20px;
+            border-radius: 8px;
+            font-weight: 700;
+            font-size: 16px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        button:hover { background: var(--primary-hover); transform: translateY(-2px); }
+        button:active { transform: translateY(0); }
+        button:disabled { background: #555; color: #888; cursor: not-allowed; transform: none; }
+
+        .hints {
+            font-size: 0.75em;
+            color: rgba(255,255,255,0.5);
+            text-align: center;
+            line-height: 1.4;
+        }
+
+        /* --- Modals --- */
+        #modal-overlay {
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0, 0, 0, 0.8);
+            backdrop-filter: blur(5px);
+            z-index: 50;
+            display: none;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .modal-box {
+            background: var(--panel-bg);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 16px;
+            padding: 25px;
+            width: 85%;
+            max-width: 400px;
+            text-align: center;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.8);
+            animation: popIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+
+        @keyframes popIn {
+            0% { transform: scale(0.8); opacity: 0; }
+            100% { transform: scale(1); opacity: 1; }
+        }
+
+        .score-circle {
+            width: 100px;
+            height: 100px;
+            border-radius: 50%;
+            background: conic-gradient(var(--primary) 0%, #333 0%);
+            margin: 20px auto;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 28px;
+            font-weight: bold;
+            color: #fff;
+            position: relative;
+        }
+        
+        .score-circle::before {
+            content: '';
+            position: absolute;
+            width: 80px; height: 80px;
+            background: var(--panel-bg);
+            border-radius: 50%;
+        }
+        
+        .score-circle span { position: relative; z-index: 2; }
+
+        canvas {
+            position: absolute;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            cursor: grab;
+            z-index: 1;
+        }
+        canvas:active { cursor: grabbing; }
+
+        /* Guesses History */
+        #guess-history {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+            margin-top: 10px;
+            max-height: 120px;
+            overflow-y: auto;
+        }
+        .history-item {
+            display: flex;
+            justify-content: space-between;
+            background: rgba(0,0,0,0.4);
+            padding: 8px 12px;
+            border-radius: 6px;
+            font-size: 0.85em;
+        }
+        .history-word { font-weight: bold; color: var(--primary); }
+    </style>
+</head>
+<body>
+
+    <!-- Target HUD -->
+    <div id="top-hud">
+        <div class="hud-header">
+            <span>Daily Target <span id="day-number">#0</span></span>
+            <span id="tries-counter" style="color: var(--primary);">Tries: 0/5</span>
+        </div>
+        <div style="font-size: 0.8em; color: #888; margin-bottom: -5px;">Try to generate an island with these exact stats:</div>
+        <div class="hud-stats">
+            <div class="stat-item">💧 Water: <span id="target-water" style="color:#fff;">0%</span></div>
+            <div class="stat-item">🌱 Land: <span id="target-land" style="color:#fff;">0%</span></div>
+            <div class="stat-item">🏔️ Peak: <span id="target-peak" style="color:#fff;">0</span></div>
+        </div>
+    </div>
+
+    <!-- Main Canvas -->
+    <canvas id="gameCanvas"></canvas>
+
+    <!-- Controls -->
+    <div id="bottom-controls">
+        <div class="hints">
+            <strong>Hint:</strong> Word LENGTH increases Peak Height.<br>
+            <strong>Hint:</strong> VOWELS increase island fragmentation (more water).
+        </div>
+        <div class="input-group">
+            <input type="text" id="seedInput" placeholder="Enter a word..." maxlength="15" autocomplete="off">
+            <button id="generateBtn">Submit</button>
+        </div>
+        <div id="guess-history">
+            <!-- Guesses populate here -->
+        </div>
+    </div>
+
+    <!-- Game Over / Victory Modal -->
+    <div id="modal-overlay">
+        <div class="modal-box">
+            <h2 id="modal-title" style="margin-top: 0;">Daily Complete!</h2>
+            <div class="score-circle" id="score-circle">
+                <span id="final-score">0%</span>
+            </div>
+            <p id="modal-desc" style="color: #aaa; font-size: 0.9em; margin-bottom: 20px;">
+                You found the best ecosystem match.
+            </p>
+            <button id="shareBtn" style="width: 100%;">Share Result 📋</button>
+            <button id="closeModalBtn" style="width: 100%; margin-top: 10px; background: transparent; border: 1px solid #555; color: #fff;">Review Map</button>
+        </div>
+    </div>
+
+    <script>
+        // --- Game Engine Variables ---
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d', { alpha: false });
+        
+        const MAX_TRIES = 5;
+        let width, height;
+        const gridSize = 28; 
+        const baseTileW = 44, baseTileH = 22, baseZScale = 14;   
+        let tileW = baseTileW, tileH = baseTileH, zScale = baseZScale;
+        
+        let timeOffset = 0;
+        let currentSeed = "";
+        let terrainMap = [];
+        let animationFrameId;
+
+        // Camera Panning
+        let camX = 0, camY = 0;
+        let isDragging = false, startDragX = 0, startDragY = 0;
+
+        // Daily Game State
+        let dailyTargetStats = { water: 0, land: 0, peak: 0 };
+        let gameState = {
+            dateStr: new Date().toDateString(),
+            guesses: [], // { word, score, stats }
+            bestScore: 0,
+            completed: false
+        };
+
+        // --- Core Math & Procedural Generation ---
+        
+        function hashString(str) {
+            let hash = 0;
+            for (let i = 0; i < str.length; i++) {
+                hash = Math.imul(31, hash) + str.charCodeAt(i) | 0;
+            }
+            return hash;
+        }
+
+        function seededRandom(seed) {
+            let t = seed += 0x6D2B79F5;
+            t = Math.imul(t ^ t >>> 15, t | 1);
+            t ^= t + Math.imul(t ^ t >>> 7, t | 61);
+            return ((t ^ t >>> 14) >>> 0) / 4294967296;
+        }
+
+        function getNoise(x, y, seedStr) {
+            const baseSeed = hashString(seedStr);
+            const getCorner = (ix, iy) => seededRandom(baseSeed + ix * 12345 + iy * 67890);
+
+            // GAME DESIGN MECHANIC: Vowels dictate noise scale (fragmentation)
+            const vowels = seedStr.match(/[aeiou]/gi)?.length || 0;
+            const scale = 0.06 + Math.min(vowels, 10) * 0.015; 
+
+            const nx = x * scale, ny = y * scale;
+            const ix = Math.floor(nx), iy = Math.floor(ny);
+            const fx = nx - ix, fy = ny - iy;
+
+            const smoothStep = t => t * t * (3 - 2 * t);
+            const sx = smoothStep(fx), sy = smoothStep(fy);
+
+            const c00 = getCorner(ix, iy), c10 = getCorner(ix + 1, iy);
+            const c01 = getCorner(ix, iy + 1), c11 = getCorner(ix + 1, iy + 1);
+
+            const top = c00 + sx * (c10 - c00);
+            const bottom = c01 + sx * (c11 - c01);
+            return top + sy * (bottom - top);
+        }
+
+        const biomes = {
+            deepWater: { top: '#005c99', left: '#004a7a', right: '#00375c', isLiquid: true, type: 'water' },
+            water:     { top: '#1E90FF', left: '#1874CD', right: '#104E8B', isLiquid: true, type: 'water' },
+            sand:      { top: '#e6c280', left: '#c4a264', right: '#a3844d', isLiquid: false, type: 'land' },
+            dirt:      { top: '#8B5A2B', left: '#6B4226', right: '#52331C', isLiquid: false, type: 'land' },
+            grass:     { top: '#3cb371', left: '#2e8b57', right: '#236b43', isLiquid: false, type: 'land' },
+            forest:    { top: '#228B22', left: '#006400', right: '#004000', isLiquid: false, type: 'land' },
+            stone:     { top: '#8a959e', left: '#737c85', right: '#5a6269', isLiquid: false, type: 'rock' },
+            snow:      { top: '#f0f4f8', left: '#d2dce3', right: '#b4c3cf', isLiquid: false, type: 'rock' }
+        };
+
+        function generateTerrainData(seedStr) {
+            let mapData = [];
+            let stats = { waterCount: 0, landCount: 0, rockCount: 0, totalVisible: 0, peak: 0 };
+            
+            // GAME DESIGN MECHANIC: Word length dictates mountain height multiplier
+            const heightMultiplier = 8 + Math.min(seedStr.length, 15) * 0.6;
+
+            for (let x = 0; x < gridSize; x++) {
+                mapData[x] = [];
+                for (let y = 0; y < gridSize; y++) {
+                    let rawNoise = getNoise(x, y, seedStr);
+                    
+                    const distFromCenter = Math.sqrt(Math.pow(x - gridSize/2, 2) + Math.pow(y - gridSize/2, 2));
+                    const maxRadius = gridSize / 1.6; 
+                    const edgeMask = Math.max(0, 1 - Math.pow(distFromCenter / maxRadius, 1.5));
+                    
+                    let elevation = rawNoise * heightMultiplier * edgeMask;
+                    
+                    if (elevation < 1.5 && distFromCenter < maxRadius * 1.2) {
+                        elevation = 1.5; 
+                    } else if (distFromCenter >= maxRadius * 1.2) {
+                        elevation = -5; // Hidden/deep
+                    }
+                    
+                    let roundedElevation = Math.floor(elevation);
+                    if (roundedElevation > stats.peak) stats.peak = roundedElevation;
+                    
+                    let biome;
+                    if (roundedElevation <= 0) biome = biomes.deepWater;
+                    else if (roundedElevation === 1) biome = biomes.water;
+                    else if (roundedElevation === 2) biome = biomes.sand;
+                    else if (roundedElevation === 3) biome = biomes.dirt;
+                    else if (roundedElevation > 3 && roundedElevation <= 5) biome = biomes.grass;
+                    else if (roundedElevation > 5 && roundedElevation <= 7) biome = biomes.forest;
+                    else if (roundedElevation > 7 && roundedElevation <= 9) biome = biomes.stone;
+                    else biome = biomes.snow;
+
+                    const isHidden = roundedElevation <= -5;
+
+                    mapData[x][y] = { elevation: roundedElevation, biome: biome, isHidden: isHidden };
+
+                    if (!isHidden) {
+                        stats.totalVisible++;
+                        if (biome.type === 'water') stats.waterCount++;
+                        else if (biome.type === 'land') stats.landCount++;
+                        else if (biome.type === 'rock') stats.rockCount++;
+                    }
+                }
+            }
+
+            return { 
+                map: mapData, 
+                stats: {
+                    water: Math.round((stats.waterCount / stats.totalVisible) * 100),
+                    land: Math.round((stats.landCount / stats.totalVisible) * 100),
+                    rock: Math.round((stats.rockCount / stats.totalVisible) * 100),
+                    peak: stats.peak
+                }
+            };
+        }
+
+        // --- Game Logic ---
+
+        function loadGame() {
+            // Check LocalStorage
+            const saved = localStorage.getItem('terrariumDaily');
+            if (saved) {
+                const parsed = JSON.parse(saved);
+                if (parsed.dateStr === new Date().toDateString()) {
+                    gameState = parsed;
+                }
+            }
+
+            // Generate Daily Target (Uses the Date string as the seed)
+            const dateStr = new Date().toDateString();
+            document.getElementById('day-number').innerText = "#" + hashString(dateStr).toString().substring(0,4);
+            
+            const targetData = generateTerrainData("Target-" + dateStr);
+            dailyTargetStats = targetData.stats;
+
+            // Update HUD
+            document.getElementById('target-water').innerText = dailyTargetStats.water + "%";
+            document.getElementById('target-land').innerText = dailyTargetStats.land + "%";
+            document.getElementById('target-peak').innerText = dailyTargetStats.peak;
+
+            updateUI();
+
+            // Load last guess or render a blank starter world
+            if (gameState.guesses.length > 0) {
+                currentSeed = gameState.guesses[gameState.guesses.length - 1].word;
+                terrainMap = generateTerrainData(currentSeed).map;
+            } else {
+                terrainMap = generateTerrainData("Ocean").map; // Default empty-ish map
+            }
+            
+            if(gameState.completed) showModal();
+        }
+
+        function calculateScore(playerStats) {
+            // Difference in percentages (Water, Land, Rock)
+            const waterDiff = Math.abs(dailyTargetStats.water - playerStats.water);
+            const landDiff = Math.abs(dailyTargetStats.land - playerStats.land);
+            const rockDiff = Math.abs(dailyTargetStats.rock - playerStats.rock);
+            
+            // Difference in peak height
+            const peakDiff = Math.abs(dailyTargetStats.peak - playerStats.peak);
+
+            // Max possible variance is roughly 200 for %, and maybe 10 for peak
+            let score = 100 - ((waterDiff + landDiff + rockDiff) * 0.4) - (peakDiff * 3);
+            return Math.max(0, Math.min(100, Math.round(score)));
+        }
+
+        function submitGuess() {
+            if (gameState.completed || gameState.guesses.length >= MAX_TRIES) return;
+
+            const input = document.getElementById('seedInput');
+            let word = input.value.trim().toLowerCase();
+            if (!word) return;
+
+            // Generate map and calc score
+            currentSeed = word;
+            const data = generateTerrainData(word);
+            terrainMap = data.map;
+            camX = 0; camY = 0; // Reset camera
+            
+            const score = calculateScore(data.stats);
+            
+            if (score > gameState.bestScore) gameState.bestScore = score;
+
+            gameState.guesses.push({
+                word: word,
+                score: score,
+                stats: data.stats
+            });
+
+            if (gameState.guesses.length >= MAX_TRIES || score === 100) {
+                gameState.completed = true;
+                setTimeout(showModal, 1500); // Show modal after animation settles
+            }
+
+            // Save and update
+            localStorage.setItem('terrariumDaily', JSON.stringify(gameState));
+            input.value = '';
+            input.blur();
+            updateUI();
+        }
+
+        function updateUI() {
+            document.getElementById('tries-counter').innerText = `Tries: ${gameState.guesses.length}/${MAX_TRIES}`;
+            
+            const historyDiv = document.getElementById('guess-history');
+            historyDiv.innerHTML = '';
+            
+            gameState.guesses.forEach((g, i) => {
+                const el = document.createElement('div');
+                el.className = 'history-item';
+                el.innerHTML = `
+                    <span><span style="color:#555">${i+1}.</span> <span class="history-word">${g.word.toUpperCase()}</span></span>
+                    <span>💧${g.stats.water}% 🏔️${g.stats.peak} ➔ <strong style="color:var(--primary)">${g.score}%</strong></span>
+                `;
+                historyDiv.appendChild(el);
+            });
+
+            if (gameState.completed) {
+                document.getElementById('seedInput').disabled = true;
+                document.getElementById('generateBtn').disabled = true;
+            }
+        }
+
+        // --- Rendering Engine ---
+
+        function drawBlock(screenX, screenY, elevation, palette, isAnimated) {
+            let animatedElevation = elevation;
+            if (isAnimated) {
+                animatedElevation += Math.sin(timeOffset + screenX * 0.03 + screenY * 0.03) * 0.4;
+            }
+
+            const z = animatedElevation * zScale;
+            
+            ctx.fillStyle = palette.left;
+            ctx.beginPath();
+            ctx.moveTo(screenX - tileW / 2, screenY + tileH / 2 - z);
+            ctx.lineTo(screenX, screenY + tileH - z);
+            ctx.lineTo(screenX, screenY + tileH + zScale - z + (elevation <= 2 ? zScale*2 : 0)); 
+            ctx.lineTo(screenX - tileW / 2, screenY + tileH / 2 + zScale - z + (elevation <= 2 ? zScale*2 : 0));
+            ctx.closePath();
+            ctx.fill();
+
+            ctx.fillStyle = palette.right;
+            ctx.beginPath();
+            ctx.moveTo(screenX, screenY + tileH - z);
+            ctx.lineTo(screenX + tileW / 2, screenY + tileH / 2 - z);
+            ctx.lineTo(screenX + tileW / 2, screenY + tileH / 2 + zScale - z + (elevation <= 2 ? zScale*2 : 0));
+            ctx.lineTo(screenX, screenY + tileH + zScale - z + (elevation <= 2 ? zScale*2 : 0));
+            ctx.closePath();
+            ctx.fill();
+            
+            ctx.fillStyle = palette.top;
+            ctx.beginPath();
+            ctx.moveTo(screenX, screenY - z);
+            ctx.lineTo(screenX + tileW / 2, screenY + tileH / 2 - z);
+            ctx.lineTo(screenX, screenY + tileH - z);
+            ctx.lineTo(screenX - tileW / 2, screenY + tileH / 2 - z);
+            ctx.closePath();
+            ctx.fill();
+            
+            ctx.strokeStyle = 'rgba(255,255,255,0.05)';
+            ctx.lineWidth = 1;
+            ctx.stroke();
+        }
+
+        function drawWorld() {
+            ctx.fillStyle = '#0f1115';
+            ctx.fillRect(0, 0, width, height);
+
+            const offsetX = width / 2 + camX;
+            const offsetY = height / 2 - (gridSize * tileH) / 2 + (height * 0.05) + camY;
+
+            for (let x = 0; x < gridSize; x++) {
+                for (let y = 0; y < gridSize; y++) {
+                    const cell = terrainMap[x][y];
+                    if (cell.isHidden) continue;
+
+                    const screenX = offsetX + (x - y) * (tileW / 2);
+                    const screenY = offsetY + (x + y) * (tileH / 2);
+
+                    if (screenX > -tileW && screenX < width + tileW && 
+                        screenY > -tileH - (zScale*15) && screenY < height + tileH) {
+                        drawBlock(screenX, screenY, cell.elevation, cell.biome, cell.biome.isLiquid);
+                    }
+                }
+            }
+        }
+
+        // --- Interaction & UI Helpers ---
+
+        function resize() {
+            width = window.innerWidth;
+            height = window.innerHeight;
+            canvas.width = width;
+            canvas.height = height;
+            const scaleFactor = Math.min(1, width / 700);
+            tileW = baseTileW * scaleFactor;
+            tileH = baseTileH * scaleFactor;
+            zScale = baseZScale * scaleFactor;
+        }
+
+        function startDrag(e) {
+            if(e.target.tagName === 'BUTTON' || e.target.tagName === 'INPUT') return;
+            isDragging = true;
+            startDragX = e.touches ? e.touches[0].clientX : e.clientX;
+            startDragY = e.touches ? e.touches[0].clientY : e.clientY;
+        }
+
+        function doDrag(e) {
+            if (!isDragging) return;
+            if(e.cancelable) e.preventDefault(); 
+            const currentX = e.touches ? e.touches[0].clientX : e.clientX;
+            const currentY = e.touches ? e.touches[0].clientY : e.clientY;
+            camX += (currentX - startDragX);
+            camY += (currentY - startDragY);
+            startDragX = currentX;
+            startDragY = currentY;
+        }
+        function endDrag() { isDragging = false; }
+
+        canvas.addEventListener('mousedown', startDrag);
+        canvas.addEventListener('mousemove', doDrag);
+        window.addEventListener('mouseup', endDrag);
+        canvas.addEventListener('touchstart', startDrag, { passive: false });
+        canvas.addEventListener('touchmove', doDrag, { passive: false });
+        window.addEventListener('touchend', endDrag);
+
+        function showModal() {
+            const finalScore = gameState.bestScore;
+            document.getElementById('final-score').innerText = finalScore + "%";
+            document.getElementById('score-circle').style.background = `conic-gradient(var(--primary) ${finalScore}%, #333 ${finalScore}%)`;
+            
+            const desc = finalScore >= 95 ? "Perfect Ecosystem!" : 
+                         finalScore >= 80 ? "Great adaptation!" : "Nature is unpredictable.";
+            document.getElementById('modal-desc').innerText = desc;
+            
+            document.getElementById('modal-overlay').style.display = 'flex';
+        }
+
+        function generateEmojiGrid() {
+            // Downsample the 28x28 grid to 5x5 for sharing
+            let gridStr = "";
+            const sampleStep = Math.floor(gridSize / 5);
+            
+            for(let y=0; y<5; y++) {
+                for(let x=0; x<5; x++) {
+                    const cx = x * sampleStep + 2;
+                    const cy = y * sampleStep + 2;
+                    if(cx >= gridSize || cy >= gridSize) continue;
+                    
+                    const cell = terrainMap[cx][cy];
+                    if(cell.isHidden || cell.biome.type === 'water') gridStr += "🟦";
+                    else if(cell.biome.type === 'rock') gridStr += "🪨";
+                    else if(cell.elevation <= 2) gridStr += "🟫";
+                    else gridStr += "🟩";
+                }
+                gridStr += "\n";
+            }
+            return gridStr;
+        }
+
+        document.getElementById('shareBtn').addEventListener('click', () => {
+            const bestGuessObj = gameState.guesses.reduce((prev, current) => (prev.score > current.score) ? prev : current);
+            // Hide the actual word length by replacing with stars so no spoilers
+            const hiddenWord = "⭐".repeat(bestGuessObj.word.length);
+            
+            const shareText = `Infinite Terrarium Daily ${document.getElementById('day-number').innerText}\nTarget: 💧${dailyTargetStats.water}% 🌱${dailyTargetStats.land}% 🏔️${dailyTargetStats.peak}\nMy Best Word: ${hiddenWord}\nScore: ${gameState.bestScore}%\n\n${generateEmojiGrid()}playterrarium.com`;
+
+            navigator.clipboard.writeText(shareText).then(() => {
+                document.getElementById('shareBtn').innerText = "Copied! ✓";
+                setTimeout(() => document.getElementById('shareBtn').innerText = "Share Result 📋", 2000);
+            }).catch(() => {
+                // Fallback for older browsers / iframe restrictions
+                const textArea = document.createElement("textarea");
+                textArea.value = shareText;
+                document.body.appendChild(textArea);
+                textArea.focus();
+                textArea.select();
+                try {
+                    document.execCommand('copy');
+                    document.getElementById('shareBtn').innerText = "Copied! ✓";
+                } catch (err) {
+                    alert("Unable to copy. Here is your text:\n\n" + shareText);
+                }
+                document.body.removeChild(textArea);
+            });
+        });
+
+        document.getElementById('closeModalBtn').addEventListener('click', () => {
+            document.getElementById('modal-overlay').style.display = 'none';
+        });
+
+        document.getElementById('generateBtn').addEventListener('click', submitGuess);
+        document.getElementById('seedInput').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') submitGuess();
+        });
+
+        function animate() {
+            timeOffset += 0.05; 
+            drawWorld();
+            animationFrameId = requestAnimationFrame(animate);
+        }
+
+        window.addEventListener('resize', resize);
+        window.onload = () => {
+            resize();
+            loadGame();
+            animate();
+        };
+    </script>
+</body>
+</html>
